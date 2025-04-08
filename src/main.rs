@@ -19,6 +19,9 @@ use crossterm::{
     ExecutableCommand, QueueableCommand,
 };
 
+const MAX_MOVE_DELAY: u64 = 150;
+const MIN_MOVE_DELAY: u64 = 50;
+
 #[derive(PartialEq, Clone, Copy)]
 enum Direction {
     Up,
@@ -30,7 +33,7 @@ enum Direction {
 struct Snake {
     body: Vec<(u16, u16)>,
     head_dir: Direction,
-    score: usize,
+    score: u64,
 }
 
 impl Snake {
@@ -89,7 +92,7 @@ impl World {
             self.process_keypress()?;
             self.snake_move();
             self.check_collision();
-            sleep(Duration::from_millis(100));
+            sleep(Duration::from_millis(self.snake_move_delay()));
         }
     }
 
@@ -215,6 +218,15 @@ impl World {
             self.snake_new_head();
             self.snake.score += 1;
             self.update_target_position = true;
+        }
+    }
+
+    fn snake_move_delay(&self) -> u64 {
+        if self.snake.score > MAX_MOVE_DELAY {
+            MAX_MOVE_DELAY
+        } else {
+            let n = MAX_MOVE_DELAY - self.snake.score;
+            std::cmp::max(n, MIN_MOVE_DELAY)
         }
     }
 }
