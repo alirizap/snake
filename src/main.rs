@@ -73,6 +73,7 @@ impl World {
 
     fn refresh_screen(&mut self) -> Result<()> {
         self.stdout.queue(Clear(ClearType::All))?;
+        self.draw_statusbar()?;
         self.draw_snake()?;
         self.stdout.flush()?;
         Ok(())
@@ -101,6 +102,12 @@ impl World {
         Ok(())
     }
 
+    fn draw_statusbar(&mut self) -> Result<()> {
+        let msg = format!(" press q to exit | moving <w,a,s,d> ");
+        self.stdout.queue(cursor::MoveTo(0, self.max_y + 1))?;
+        self.stdout.queue(style::Print(msg.black().on_grey()))?;
+        Ok(())
+    }
 
     fn draw_snake(&mut self) -> Result<()> {
         let (head_x, head_y) = self.snake.body.first().unwrap();
