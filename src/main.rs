@@ -86,6 +86,7 @@ impl World {
             self.refresh_screen()?;
             self.process_keypress()?;
             self.snake_move();
+            self.check_collision();
             sleep(Duration::from_millis(100));
         }
     }
@@ -201,6 +202,13 @@ impl World {
             }
         };
         self.snake.body.insert(0, new_head);
+    }
+
+    fn check_collision(&mut self) {
+        let (head_x, head_y) = self.snake.body.first().unwrap();
+        if *head_x == self.target.x && *head_y == self.target.y {
+            self.update_target_position = true;
+        }
     }
 }
 
