@@ -1,5 +1,6 @@
 use crate::Direction::*;
 use anyhow::Result;
+use rand::Rng;
 use std::{
     io::{stdout, Stdout, Write},
     thread::sleep,
@@ -41,12 +42,28 @@ impl Snake {
     }
 }
 
+struct Target {
+    x: u16,
+    y: u16,
+}
+
+impl Target {
+    fn new(min_x: u16, max_x: u16, min_y: u16, max_y: u16) -> Self {
+        Self {
+            x: rand::rng().random_range(min_x..=max_x),
+            y: rand::rng().random_range(min_y..=max_y),
+        }
+    }
+}
+
 struct World {
     min_x: u16,
     max_x: u16,
     min_y: u16,
     max_y: u16,
     snake: Snake,
+    target: Target,
+    update_target_position: bool,
     stdout: Stdout,
 }
 
@@ -58,6 +75,8 @@ impl World {
             min_y: 2,
             max_y: max_y - 2,
             snake: Snake::new(max_x / 2, max_y / 2),
+            target: Target::new(3, max_x - 4, 3, max_y - 4),
+            update_target_position: true,
             stdout: stdout(),
         }
     }
@@ -75,6 +94,7 @@ impl World {
         self.stdout.queue(Clear(ClearType::All))?;
         self.draw_statusbar()?;
         self.draw_snake()?;
+        self.draw_target()?;
         self.stdout.flush()?;
         Ok(())
     }
@@ -118,6 +138,28 @@ impl World {
             self.stdout.queue(cursor::MoveTo(*x, *y))?;
             self.stdout.queue(style::Print("●"))?;
         }
+        Ok(())
+    }
+
+    fn draw_target(&mut self) -> Result<()> {
+        if self.update_target_position {
+            let has_conflict = |tx, ty| {
+                for (sx, sy) in &self.snake.body {
+                    if *sx == tx && *sy == ty {
+                        return true;
+                    }
+                }
+                false
+            };
+
+            while has_conflict(self.target.x, self.target.y) {
+                self.target = Target::new(3, self.max_x - 1, 3, self.max_y - 1);
+            }
+            self.update_target_position = false;
+        }
+        self.stdout
+            .queue(cursor::MoveTo(self.target.x, self.target.y))?;
+        self.stdout.queue(style::Print("●"))?;
         Ok(())
     }
 
