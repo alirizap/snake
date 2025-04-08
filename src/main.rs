@@ -1,13 +1,16 @@
+use crate::Direction::*;
 use anyhow::Result;
 use std::{
     io::{stdout, Stdout, Write},
+    thread::sleep,
     time::Duration,
 };
 
 use crossterm::{
     cursor,
     event::{poll, read, Event, KeyCode},
-    execute, style,
+    execute,
+    style::{self, Stylize},
     terminal::{
         disable_raw_mode, enable_raw_mode, size, Clear, ClearType, EnterAlternateScreen,
         LeaveAlternateScreen,
@@ -15,8 +18,17 @@ use crossterm::{
     ExecutableCommand, QueueableCommand,
 };
 
+#[derive(PartialEq, Clone, Copy)]
+enum Direction {
+    Up,
+    Down,
+    Right,
+    Left,
+}
+
 struct Snake {
     body: Vec<(u16, u16)>,
+    head_dir: Direction,
 }
 
 impl Snake {
@@ -24,6 +36,7 @@ impl Snake {
         let (tail_x, tail_y) = (head_x + 1, head_y);
         Self {
             body: vec![(head_x, head_y), (tail_x, tail_y)],
+            head_dir: Left,
         }
     }
 }
@@ -53,6 +66,8 @@ impl World {
         loop {
             self.refresh_screen()?;
             self.process_keypress()?;
+            self.snake_move();
+            sleep(Duration::from_millis(100));
         }
     }
 
@@ -67,6 +82,7 @@ impl World {
         if let Ok(true) = poll(Duration::from_millis(10)) {
             let event = read()?;
             if let Event::Key(key) = event {
+                let cur_dir = self.snake.head_dir;
                 match key.code {
                     KeyCode::Char('q') => {
                         self.stdout.execute(cursor::Show).unwrap();
@@ -74,12 +90,17 @@ impl World {
                         disable_raw_mode().unwrap();
                         std::process::exit(0);
                     }
+                    KeyCode::Char('w') if cur_dir != Down => self.snake.head_dir = Up,
+                    KeyCode::Char('a') if cur_dir != Right => self.snake.head_dir = Left,
+                    KeyCode::Char('s') if cur_dir != Up => self.snake.head_dir = Down,
+                    KeyCode::Char('d') if cur_dir != Left => self.snake.head_dir = Right,
                     _ => {}
                 }
             }
         }
         Ok(())
     }
+
 
     fn draw_snake(&mut self) -> Result<()> {
         let (head_x, head_y) = self.snake.body.first().unwrap();
@@ -91,6 +112,46 @@ impl World {
             self.stdout.queue(style::Print("●"))?;
         }
         Ok(())
+    }
+
+    fn snake_move(&mut self) {
+        self.snake_new_head();
+        self.snake.body.pop();
+    }
+
+    fn snake_new_head(&mut self) {
+        let (head_x, head_y) = self.snake.body.first().unwrap();
+        let new_head = match self.snake.head_dir {
+            Up => {
+                if *head_y == self.min_y {
+                    (*head_x, self.max_y - 1)
+                } else {
+                    (*head_x, *head_y - 1)
+                }
+            }
+            Down => {
+                if *head_y == self.max_y - 1 {
+                    (*head_x, self.min_y + 1)
+                } else {
+                    (*head_x, *head_y + 1)
+                }
+            }
+            Left => {
+                if *head_x == self.min_x {
+                    (self.max_x - 1, *head_y)
+                } else {
+                    (*head_x - 1, *head_y)
+                }
+            }
+            Right => {
+                if *head_x == self.max_x - 1 {
+                    (self.min_x + 1, *head_y)
+                } else {
+                    (*head_x + 1, *head_y)
+                }
+            }
+        };
+        self.snake.body.insert(0, new_head);
     }
 }
 
