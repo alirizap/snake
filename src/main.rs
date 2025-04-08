@@ -30,6 +30,7 @@ enum Direction {
 struct Snake {
     body: Vec<(u16, u16)>,
     head_dir: Direction,
+    score: usize,
 }
 
 impl Snake {
@@ -38,6 +39,7 @@ impl Snake {
         Self {
             body: vec![(head_x, head_y), (tail_x, tail_y)],
             head_dir: Left,
+            score: 0,
         }
     }
 }
@@ -124,7 +126,10 @@ impl World {
     }
 
     fn draw_statusbar(&mut self) -> Result<()> {
-        let msg = format!(" press q to exit | moving <w,a,s,d> ");
+        let msg = format!(
+            " press q to exit | moving <w,a,s,d> | score {} ",
+            self.snake.score
+        );
         self.stdout.queue(cursor::MoveTo(0, self.max_y + 1))?;
         self.stdout.queue(style::Print(msg.black().on_grey()))?;
         Ok(())
@@ -207,6 +212,8 @@ impl World {
     fn check_collision(&mut self) {
         let (head_x, head_y) = self.snake.body.first().unwrap();
         if *head_x == self.target.x && *head_y == self.target.y {
+            self.snake_new_head();
+            self.snake.score += 1;
             self.update_target_position = true;
         }
     }
