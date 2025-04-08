@@ -1,13 +1,18 @@
 use anyhow::Result;
-use std::io::{stdout, Stdout, Write};
+use std::{
+    io::{stdout, Stdout, Write},
+    time::Duration,
+};
 
 use crossterm::{
-    cursor, execute, style,
+    cursor,
+    event::{poll, read, Event, KeyCode},
+    execute, style,
     terminal::{
         disable_raw_mode, enable_raw_mode, size, Clear, ClearType, EnterAlternateScreen,
         LeaveAlternateScreen,
     },
-    QueueableCommand,
+    ExecutableCommand, QueueableCommand,
 };
 
 struct Snake {
@@ -46,10 +51,34 @@ impl World {
 
     fn run(&mut self) -> Result<()> {
         loop {
-            self.stdout.queue(Clear(ClearType::All))?;
-            self.draw_snake()?;
-            self.stdout.flush()?;
+            self.refresh_screen()?;
+            self.process_keypress()?;
         }
+    }
+
+    fn refresh_screen(&mut self) -> Result<()> {
+        self.stdout.queue(Clear(ClearType::All))?;
+        self.draw_snake()?;
+        self.stdout.flush()?;
+        Ok(())
+    }
+
+    fn process_keypress(&mut self) -> Result<()> {
+        if let Ok(true) = poll(Duration::from_millis(10)) {
+            let event = read()?;
+            if let Event::Key(key) = event {
+                match key.code {
+                    KeyCode::Char('q') => {
+                        self.stdout.execute(cursor::Show).unwrap();
+                        self.stdout.execute(LeaveAlternateScreen).unwrap();
+                        disable_raw_mode().unwrap();
+                        std::process::exit(0);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(())
     }
 
     fn draw_snake(&mut self) -> Result<()> {
