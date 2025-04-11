@@ -69,6 +69,7 @@ struct World {
     snake: Snake,
     target: Target,
     update_target_position: bool,
+    game_over: bool,
     stdout: Stdout,
 }
 
@@ -82,6 +83,7 @@ impl World {
             snake: Snake::new(max_x / 2, max_y / 2),
             target: Target::new(3, max_x - 4, 3, max_y - 4),
             update_target_position: true,
+            game_over: false,
             stdout: stdout(),
         }
     }
@@ -91,17 +93,22 @@ impl World {
             self.refresh_screen()?;
             self.process_keypress()?;
             self.snake_move();
+            if self.check_failure() {
+                self.draw_failure_banner()?;
+            }
             self.check_collision();
             sleep(Duration::from_millis(self.snake_move_delay()));
         }
     }
 
     fn refresh_screen(&mut self) -> Result<()> {
-        self.stdout.queue(Clear(ClearType::All))?;
-        self.draw_statusbar()?;
-        self.draw_snake()?;
-        self.draw_target()?;
-        self.stdout.flush()?;
+        if !self.game_over {
+            self.stdout.queue(Clear(ClearType::All))?;
+            self.draw_statusbar()?;
+            self.draw_snake()?;
+            self.draw_target()?;
+            self.stdout.flush()?;
+        }
         Ok(())
     }
 
@@ -117,10 +124,18 @@ impl World {
                         disable_raw_mode().unwrap();
                         std::process::exit(0);
                     }
-                    KeyCode::Char('w') if cur_dir != Down => self.snake.head_dir = Up,
-                    KeyCode::Char('a') if cur_dir != Right => self.snake.head_dir = Left,
-                    KeyCode::Char('s') if cur_dir != Up => self.snake.head_dir = Down,
-                    KeyCode::Char('d') if cur_dir != Left => self.snake.head_dir = Right,
+                    KeyCode::Char('w') if cur_dir != Down && !self.game_over => {
+                        self.snake.head_dir = Up
+                    }
+                    KeyCode::Char('a') if cur_dir != Right && !self.game_over => {
+                        self.snake.head_dir = Left
+                    }
+                    KeyCode::Char('s') if cur_dir != Up && !self.game_over => {
+                        self.snake.head_dir = Down
+                    }
+                    KeyCode::Char('d') if cur_dir != Left && !self.game_over => {
+                        self.snake.head_dir = Right
+                    }
                     _ => {}
                 }
             }
@@ -172,6 +187,28 @@ impl World {
         Ok(())
     }
 
+    fn draw_failure_banner(&mut self) -> Result<()> {
+        self.game_over = true;
+        let x = (self.max_x / 2) - 12;
+        let y = (self.max_y / 2) - 2;
+        let s = format!("║       Score: {:05}           ║", self.snake.score);
+        execute!(
+            self.stdout,
+            cursor::MoveTo(x, y),
+            style::SetBackgroundColor(style::Color::White),
+            style::SetForegroundColor(style::Color::Black),
+            style::Print("╔══════════════════════════════╗"),
+            cursor::MoveTo(x, y + 1),
+            style::Print("║       Game Over              ║"),
+            cursor::MoveTo(x, y + 2),
+            style::Print(s),
+            cursor::MoveTo(x, y + 3),
+            style::Print("╚══════════════════════════════╝"),
+            style::ResetColor
+        )?;
+        Ok(())
+    }
+
     fn snake_move(&mut self) {
         self.snake_new_head();
         self.snake.body.pop();
@@ -219,6 +256,16 @@ impl World {
             self.snake.score += 1;
             self.update_target_position = true;
         }
+    }
+
+    fn check_failure(&self) -> bool {
+        let (head_x, head_y) = self.snake.body.first().unwrap();
+        for (x, y) in &self.snake.body[1..] {
+            if head_x == x && head_y == y {
+                return true;
+            }
+        }
+        false
     }
 
     fn snake_move_delay(&self) -> u64 {
