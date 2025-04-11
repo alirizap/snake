@@ -112,6 +112,13 @@ impl World {
         Ok(())
     }
 
+    fn restart(&mut self) {
+        self.snake = Snake::new(self.max_x / 2, self.max_y / 2);
+        self.target = Target::new(3, self.max_x - 2, 3, self.max_y - 2);
+        self.update_target_position = true;
+        self.game_over = false;
+    }
+
     fn process_keypress(&mut self) -> Result<()> {
         if let Ok(true) = poll(Duration::from_millis(10)) {
             let event = read()?;
@@ -136,6 +143,7 @@ impl World {
                     KeyCode::Char('d') if cur_dir != Left && !self.game_over => {
                         self.snake.head_dir = Right
                     }
+                    KeyCode::Enter => self.restart(),
                     _ => {}
                 }
             }
@@ -145,7 +153,7 @@ impl World {
 
     fn draw_statusbar(&mut self) -> Result<()> {
         let msg = format!(
-            " press q to exit | moving <w,a,s,d> | score {} ",
+            " press q to exit | moving <w,a,s,d>, restart <enter> | score {} ",
             self.snake.score
         );
         self.stdout.queue(cursor::MoveTo(0, self.max_y + 1))?;
